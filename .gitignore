@@ -1,0 +1,27 @@
+# PlatformIO (ESP32-CAM)
+.pio/
+esp32cam/.pio/
+
+# Keil MDK build output and per-user files (STM32)
+stm32/OBJ/
+stm32/**/Objects/
+stm32/**/Listings/
+*.uvguix.*
+*.uvoptx
+*.axf
+*.o
+*.d
+*.crf
+*.lst
+*.map
+*.htm
+*.iex
+*.lnp
+*.dep
+*.bak
+JLinkSettings.ini
+
+# Local editor settings containing machine-specific paths
+.vscode/c_cpp_properties.json
+.vscode/launch.json
+.vscode/ipch

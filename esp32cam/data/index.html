@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32-CAM 小车遥控</title>
+    <style>
+        /* 禁止文本选择，避免长按按钮时浏览器进入文本选择模式 */
+        * {
+            user-select: none; /* 禁用文本选择 */
+            -webkit-user-select: none; /* 对 Safari 进行支持 */
+            -moz-user-select: none; /* 对 Firefox 进行支持 */
+            -ms-user-select: none; /* 对 IE 和 Edge 进行支持 */
+        }
+
+        body {
+        font-family: Arial, sans-serif;
+        background-color: #f0f0f0;
+        margin: 0;  /* 去除浏览器默认的边距 */
+        padding: 0; /* 去除浏览器默认的内边距 */
+        display: flex;
+        justify-content: center;  /* 水平居中对齐 */
+        align-items: flex-start;  /* 垂直对齐顶部 */
+        height: 100vh;               /* 页面高度为视口高度 */
+    }
+
+        .container {
+            background-color: white; /* 外部容器背景为白色 */
+            width: 80%; /* 容器宽度为页面的 80% */
+            max-width: 600px; /* 最大宽度限制为 600px */
+            border-radius: 15px; /* 圆角 */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* 阴影效果 */
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin-top: 40px; /* 留出顶部边距 */
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            font-size: 24px;
+            color: #333;
+        }
+
+        img {
+            width: 100%; /* 自适应容器宽度 */
+            height: auto;
+            max-width: 640px;
+            margin-bottom: 20px; /* 视频流和控制按钮之间的间距 */
+            border: 1px solid #ddd;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        /* 控制按钮 */
+        .control-btn {
+            padding: 15px;
+            margin: 8px;
+            font-size: 16px;
+            background-color: #ADD8E6; /* 浅蓝色背景 */
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            box-shadow: 0 4px #999;
+            width: 80px; /* 按钮宽度 */
+            height: 50px; /* 按钮高度 */
+        }
+
+        .control-btn:hover {
+            background-color: #8EC9E2; /* 浅蓝色背景 hover 状态 */
+        }
+
+        .control-btn:active {
+            box-shadow: 0 2px #666;
+            transform: translateY(4px);
+        }
+
+        /* 按钮容器 */
+        .control-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            height: 300px;
+            justify-content: center;
+        }
+
+        /* 控制按钮排列 */
+        .control-btns {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 十字形布局，上下左右 */
+        .vertical-btns {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .horizontal-btns {
+            display: flex;
+            justify-content: space-between;
+            width: 300px; /* 增加宽度，调整按钮之间的间距 */
+        }
+
+        .horizontal-btns button {
+            margin: 0 20px;
+        }
+
+        /* 动作按钮布局 */
+        .action-btns {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .action-btns button {
+            margin: 5px;
+            width: 60px;
+            height: 60px;
+            background-color: #FFA500;
+            color: white;
+            font-size: 14px;
+            white-space: nowrap;  /* 确保文本不换行 */
+        }
+
+        .action-btns button:hover {
+            background-color: #00E5EE;
+        }
+
+        /* 切换模式按钮 */
+        .switch-mode-btn {
+            background-color: #FF6347;
+            color: white;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .switch-mode-btn:hover {
+            background-color: #FF4500;
+        }
+
+        /* 灯的开关滑块样式 */
+        .switch-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .switch-label {
+            font-size: 16px;
+            margin-right: 10px;
+        }
+
+        .switch {
+            position: relative;
+            width: 60px;
+            height: 30px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.4s;
+            border-radius: 50px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            border-radius: 50px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.4s;
+        }
+
+        input:checked + .slider {
+            background-color: #4CAF50;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(30px);
+        }
+
+        /* 滑块样式 */
+        .slider-container {
+            margin: 5px ;
+        }
+
+        .slider {
+            width: 80%;
+        }
+
+        .slider-value {
+            margin-top: 10px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ESP32-CAM 小车遥控</h1>
+        <div>
+            <img id="videoStream" src="" alt="视频流">
+        </div>
+
+        <!-- 控制按钮 -->
+        <div class="controls">
+            <button id="switchMode" class="control-btn switch-mode-btn" onmouseup="switchMode()" ontouchend="switchMode()">履带模式</button>
+
+            <!-- 滑块控件 -->
+            <div class="slider-container">
+                <label for="slider1">俯仰</label>
+                <input type="range" id="slider1" min="90" max="180" value="180" onchange="updateSliderValue(1)"style="width: 300px;">
+                <div id="slider1-value" class="slider-value">180</div>
+            </div>
+            <div class="slider-container">
+                <label for="slider2">左右</label>
+                <input type="range" id="slider2" min="0" max="180" value="90" onchange="updateSliderValue(2)"style="width: 300px;">
+                <div id="slider2-value" class="slider-value">90</div>
+            </div>
+
+            <!-- 上下左右按钮 -->
+            <div class="vertical-btns">
+                <button id="forward" class="control-btn" onmousedown="move('forward')" onmouseup="stop()" ontouchstart="move('forward')" ontouchend="stop()">上</button>
+            </div>
+
+            <div class="horizontal-btns">
+                <button id="left" class="control-btn" onmousedown="move('left')" onmouseup="stop()" ontouchstart="move('left')" ontouchend="stop()">左</button>
+                <button id="stop" class="control-btn" onmousedown="stop()" onmouseup="stop()" ontouchstart="stop()" ontouchend="stop()">停</button>
+                <button id="right" class="control-btn" onmousedown="move('right')" onmouseup="stop()" ontouchstart="move('right')" ontouchend="stop()">右</button>
+            </div>
+
+            <div class="vertical-btns">
+                <button id="backward" class="control-btn" onmousedown="move('backward')" onmouseup="stop()" ontouchstart="move('backward')" ontouchend="stop()">下</button>
+            </div>
+
+            <!-- 动作按钮 -->
+            <div class="action-btns">
+                <button class="control-btn" onmouseup="move('action1')" ontouchend="move('action1')">动作1</button>
+                <button class="control-btn" onmouseup="move('action2')" ontouchend="move('action2')">动作2</button>
+                <button class="control-btn" onmouseup="move('action3')" ontouchend="move('action3')">动作3</button>
+            </div>
+
+            <!-- 灯的开关 -->
+            <div class="switch-container">
+                <span class="switch-label">灯控制</span>
+                <label class="switch">
+                    <input type="checkbox" id="lightSwitch" onchange="toggleLight()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            
+
+        </div>
+    </div>
+
+    <script>
+        // 动态获取 ESP32 IP 地址
+        const esp32_ip = window.location.hostname; // 获取当前设备 IP 地址
+
+        // 设置视频流源
+        document.getElementById('videoStream').src = `http://${esp32_ip}/video`;
+
+        let currentMode = 0; // 0 - 履带模式，1 - 四足模式
+
+        // 切换模式
+        function switchMode() {
+            if(currentMode == 0) {
+                document.getElementById('switchMode').innerText = '四足模式';
+                move('mode_SZU')
+                currentMode = 1;
+            }else {
+                document.getElementById('switchMode').innerText = '履带模式';
+                move('mode_LUDAI')
+                currentMode = 0;
+            }
+        }
+
+        // 控制小车的函数
+        function move(direction) {
+            console.log('发送控制命令:', direction);  // Debug log
+            fetch(`http://${esp32_ip}/move?dir=${direction}`);
+        }
+
+        function stop() {
+            console.log('发送停止命令');  // Debug log
+            fetch(`http://${esp32_ip}/move?dir=pause`);
+        }
+
+        // 灯控制开关
+        function toggleLight() {
+            const lightStatus = document.getElementById('lightSwitch').checked ? 'led_on' : 'led_off';
+            console.log(`灯状态: ${lightStatus}`); // Debug log
+            fetch(`http://${esp32_ip}/move?dir=${lightStatus}`);
+        }
+
+        // 更新滑块值显示并发送到 ESP32
+        function updateSliderValue(sliderNumber) {
+            const sliderValue = document.getElementById(`slider${sliderNumber}`).value;
+            document.getElementById(`slider${sliderNumber}-value`).textContent = sliderValue;
+            fetch(`http://${esp32_ip}/move?dir=slider${sliderNumber}:${sliderValue}`);
+        }
+
+        // 防止触摸时的默认行为（如选择文本等）
+        document.querySelectorAll('.control-btn').forEach(button => {
+            button.addEventListener('touchstart', (event) => {
+                event.preventDefault(); // 阻止默认事件，避免出现触摸事件的其他行为
+            });
+        });
+    </script>
+</body>
+</html>
